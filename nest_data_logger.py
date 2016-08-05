@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/env python
 #################################################
 #			Nest Data Logger					#
 #################################################
@@ -21,14 +21,11 @@ import nest
 import utils
 import pickle
 from datetime import * 
+import time
 import dateutil.parser
 import threading
 import pygal
-#from bokeh.plotting import *
-#import numpy as np
-#import pandas as pd
-#from bokeh.charts import TimeSeries, show, output_file
-#from collections import OrderedDict
+from pygal.style import DarkStyle
 
 
 #########
@@ -60,19 +57,6 @@ def getArgs():
 
 	return parser.parse_args()
 
-	###############################################
-	# OTHER NOTES 
-	# 
-	# For groups of args [in this case one of the two is required]:
-	# group = parser.add_mutually_exclusive_group(required=True)
-	# group.add_argument("-a1", "--arg1", help="ARG HELP")
-	# group.add_argument("-a2", "--arg2", help="ARG HELP")
-	#
-	# To make a bool thats true:
-	# parser.add_argument("-a","--arg",help="ARG HELP", action="store_true")
-	#
-	###############################################
-
 ##############
 # END OF ARGS
 ##############
@@ -92,6 +76,7 @@ def dataLoop(nest):
 		threading.Timer(120,dataLoop,args=[nest]).start()
 	print "Running Data Loop..."
 
+	timestamp = round(time.time())
 	dayLog = []
 	log_filename = 'logs/' + str(datetime.now().year) + '-' + str(datetime.now().month) + '-' + str(datetime.now().day) + '.log'
 	try:
@@ -111,20 +96,14 @@ def dataLoop(nest):
 
 	structureData(structure,log)
 
-	log['$timestamp'] = datetime.now().isoformat()
+	log['$timestamp'] = datetime.fromtimestamp(timestamp).isoformat()
 
 	calcTotals(log,dayLog)
 
 	
 
 	if(dayLogIndex != 0):
-		#if(log['$timestamp'] != dayLog[dayLogIndex-1]['$timestamp']):
 		dayLog.append(log)
-		#else:
-		#	log['$timestamp'] = second_timestamp
-		#	if(log['$timestamp'] != dayLog[dayLogIndex-1]['$timestamp']):
-		#		dayLog.append(log)
-		#	else:
 		#		print "No chnage in timestamp recieved.. No new data logged."
 	else:
 		dayLog.append(log)
@@ -138,8 +117,6 @@ def dataLoop(nest):
 		print dayLog[x]
 
 	generateGraph(dayLog)
-
-	#print dayLog
 
 def deviceData(data,log):
 	global away_temp
@@ -184,12 +161,6 @@ def calcTotals(log, dayLog):
 			log['total_run_time_away'] = dayLog[index]['total_run_time_away']
 			log['trans_time'] = False
 			log['total_trans_time'] = dayLog[index]['total_trans_time']
-		#elif(log['ac_state'] == True and dayLog[index]['ac_state'] == False):
-			#log['total_run_time'] = dayLog[index]['total_run_time']
-			#log['total_run_time_home'] = dayLog[index]['total_run_time_home']
-			#log['total_run_time_away'] = dayLog[index]['total_run_time_away']
-			#log['trans_time'] = False
-			#log['total_trans_time'] = dayLog[index]['total_trans_time']
 		else:
 			then = dateutil.parser.parse(dayLog[index]['$timestamp'])
 			now = dateutil.parser.parse(log['$timestamp'])
@@ -235,63 +206,36 @@ def generateGraph(dayLog):
 	outside_temperature = []
 
 	for log in dayLog:
-		timestamps.append(log['$timestamp'])
-		total_run_time.append(log['total_run_time'])
-		total_run_time_home.append(log['total_run_time_home'])
-		total_run_time_away.append(log['total_run_time_away'])
-		total_trans_time.append(log['total_trans_time'])
-		target_temperature.append(log['target_temperature'])
-		current_temperature.append(log['current_temperature'])
-		outside_temperature.append(log['outside_temperature'])
 
-	line_chart = pygal.Line(x_label_rotation=20,x_labels_major_every=30,show_minor_x_labels=False,dots_size=.2,width=1200,tooltip_border_radius=2)
+		# convert back to datetime
+		current_timestamp=dateutil.parser.parse(log['$timestamp'])
+
+		timestamps.append(current_timestamp.strftime("%Y-%m-%d %H:%M"))
+		total_run_time.append(round(60+log['total_run_time']/20))
+		total_run_time_home.append(60+log['total_run_time_home']/20)
+		total_run_time_away.append(60+log['total_run_time_away']/20)
+		total_trans_time.append(round(log['total_trans_time']))
+		target_temperature.append(round(log['target_temperature'],1))
+		current_temperature.append(round(log['current_temperature'],1))
+		outside_temperature.append(round(log['outside_temperature'],1))
+
+	line_chart = pygal.Line(x_label_rotation=20,
+		x_labels_major_every=30,
+		show_minor_x_labels=False,
+		dots_size=.2,width=1200,
+		tooltip_border_radius=2,
+		style=DarkStyle)
 	line_chart.title = 'Daily Nest Usage'
 	line_chart.x_labels = timestamps
 	line_chart.add('Total Run Time', total_run_time)
-	line_chart.add('Home Run Time', total_run_time_home)
-	line_chart.add('Away Run Time', total_run_time_away)
-	line_chart.add('Trans Run Time', total_trans_time)
+	#line_chart.add('Home Run Time', total_run_time_home)
+	#line_chart.add('Away Run Time', total_run_time_away)
+	#line_chart.add('Trans Run Time', total_trans_time)
 	line_chart.add('Target Temperature', target_temperature)
 	line_chart.add('Inside Temperature', current_temperature)
 	line_chart.add('Outside Temperature', outside_temperature)
 
 	line_chart.render_to_file('daily.svg')  
-
-
-	#output_file("bokeh.html", title="Nest Graph")
-	#dates =  np.array(timestamps,dtype='datetime64')
-	#inside_temp = np.array(current_temperature)
-	#target_temp = np.array(target_temperature)
-	#outside_temp = np.array(outside_temperature)
-	#p = figure(width=800, height=350, x_axis_type="datetime")
-	#p = figure(title="Nest Graph", x_axis_label='Date', y_axis_label='Inside Temp')
-	#p.line(dates, inside_temp, legend="Temp.", line_width=2)
-	#p.circle(dates, inside_temp, legend="y=x", fill_color="white", size=8)
-	#p.line(dates, outside_temp, legend="Outside.", line_width=2,line_color="orange", line_dash="4 4")
-	#p.line(dates, target_temp, legend="Target.", line_width=2,line_color="red", line_dash="2 2")
-	#show(p)
-
-	#TOOLS="resize,pan,wheel_zoom,box_zoom,reset,previewsave"
-	#timestamps = []
-	#for log in dayLog:
-	#	print log['$timestamp']
-
-	#xyvalues = OrderedDict(
-	#	INSIDE=inside_temp,
-	#	OUTSIDE=outside_temp,
-	#	TARGET=target_temp,
-	#	DATE=dates
-	#	)
-	#ts = TimeSeries(
-    #xyvalues, index='DATE', legend=True,
-    #title="Temperature", tools=TOOLS, ylabel='Degrees F',palette=['red','blue','purple'])
-	#ts2 = TimeSeries(
-	#xyvalues, index='DATE', legend=True,
-	#title="Temperature", tools=TOOLS, ylabel='Degrees F',palette=['red','blue','purple'])
-
-	#p = gridchart([ts,ts2])
-
-	#show(p)
 
 
 
@@ -304,7 +248,6 @@ def main(args):
 		debug = True
 	nestUser = User(username=args.username,password=args.password) #,filename=args.accountfile)
 	myNest = nestAuth(nestUser)
-
 
 	dataLoop(myNest)
 
@@ -322,13 +265,6 @@ class User:
 		self.username = username
 		self.password = password
 		self.filename = filename
-
-
-
-
-
-
-
 
 ###########################
 # PROG DECLARE
