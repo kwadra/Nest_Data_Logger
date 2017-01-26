@@ -78,7 +78,7 @@ def dataLoop(nest):
 
 	timestamp = round(time.time())
 	dayLog = []
-	log_filename = 'logs/' + str(datetime.now().year) + '-' + str(datetime.now().month) + '-' + str(datetime.now().day) + '.log'
+	log_filename = 'logs/{}-{}-{}.log'.format(datetime.now().year, datetime.now().month, datetime.now().day)
 	try:
 		dayLog = pickle.load(open(log_filename, 'rb'))
 		dayLogIndex = len(dayLog)
@@ -99,6 +99,10 @@ def dataLoop(nest):
 	log['$timestamp'] = datetime.fromtimestamp(timestamp).isoformat()
 
 	calcTotals(log,dayLog)
+	
+	f = open("logs/current_temp.log", "w")
+	f.write("{} {}".format(log['current_temperature'], log['current_humidity']))
+	f.close()
 
 	
 
@@ -113,8 +117,8 @@ def dataLoop(nest):
 	except:
 		print "Error Saving Log"
 
-	for x in range(0,len(dayLog)):
-		print dayLog[x]
+	#for x in range(0,len(dayLog)):
+	#	print dayLog[x]
 
 	generateGraph(dayLog)
 
@@ -124,6 +128,7 @@ def deviceData(data,log):
 	log['leaf_temp'] = utils.c_to_f(deviceData['leaf_threshold_cool'])
 	away_temp = utils.c_to_f(deviceData['away_temperature_high'])
 	log['$timestamp'] = datetime.fromtimestamp(deviceData['$timestamp']/1000).isoformat()
+	log['current_humidity'] = deviceData['current_humidity']
 	
 
 def sharedData(data,log):
@@ -222,7 +227,7 @@ def generateGraph(dayLog):
 	line_chart = pygal.Line(x_label_rotation=20,
 		x_labels_major_every=30,
 		show_minor_x_labels=False,
-		dots_size=.2,width=1200,
+		dots_size=.8,width=1200,
 		tooltip_border_radius=2,
 		style=DarkStyle)
 	line_chart.title = 'Daily Nest Usage'

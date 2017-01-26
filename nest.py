@@ -4,6 +4,7 @@ import datetime
 import time
 import os
 import weakref
+import logging
 
 import requests
 from requests import auth
